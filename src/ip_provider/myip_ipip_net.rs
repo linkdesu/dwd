@@ -3,6 +3,16 @@ use lazy_static::lazy_static;
 
 use super::super::util::{get, v2, verbose_log};
 
+/// Get public IP from https://myip.ipip.net
+///
+/// The provider will response some text like "当前 IP：xxx.xxx.xxx.xxx  来自于：中国 XX XX  电信",
+/// so I use regex to capture the IP in it.
+///
+/// # Example:
+///
+/// ```rust
+/// let ip = myip_ipip_net::get_ip().await?;
+/// ```
 pub async fn get_ip() -> Result<String, String> {
     let response = get("https://myip.ipip.net").await?;
 
