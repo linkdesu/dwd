@@ -1,16 +1,20 @@
 use clap::Clap;
-use console::{Style, Emoji};
+use console::Emoji;
 use tokio::time;
 use std::time::{Duration, SystemTime};
-use vlog::{set_verbosity_level, v0, v1, v2, verbose_log};
-use std::thread::sleep;
+
+use util::{set_verbosity_level, v0, v1, v2, verbose_log, error, warn, info, success};
+
+mod util;
+mod ip_provider;
+
 
 #[derive(Clap, Debug)]
 #[clap(version = "1.0", author = "Link Xie. <xieaolin@gmail.com>")]
 struct Options {
-    #[clap(short = 'd', long = "dns", default_value = "name.com", about = "The DNS who providing resolving of your host.")]
+    #[clap(short = 'd', long = "dns", required = true, about = "The DNS who providing resolving of your host.")]
     dns: String,
-    #[clap(short = 'i', long = "ip-provider", default_value = "myip.ipip.net", about = "The provider who detecting and providing your public IP.")]
+    #[clap(short = 'i', long = "ip-provider", required = true, about = "The provider who detecting and providing your public IP.")]
     ip_provider: String,
     #[clap(short = 'I', long = "interval", default_value = "60", about = "The interval to request IP provider for public IP.")]
     interval: u64,
@@ -30,44 +34,42 @@ async fn main() {
     let options: Options = Options::parse();
     // println!("{:?}", options);
 
-    // Init terminal
-    let error = Style::new().red();
-    let warn = Style::new().yellow();
-    let info = Style::new().cyan();
-    let success = Style::new().green();
-    // println!("This is {}", error.apply_to("error"));
-    // println!("This is {}", warn.apply_to("warn"));
-    // println!("This is {}", info.apply_to("info"));
-    // println!("This is {}", success.apply_to("success"));
-
     set_verbosity_level(options.verbose as usize);
     match options.verbose {
-        2 => v2!("{}{}", Emoji("⚠️ ", ""), error.apply_to("{}Log verbosity level: crazy")),
-        1 => v1!("{}{}", Emoji("⚠️ ", ""), warn.apply_to("{}Log verbosity level: peaceful")),
+        2 => v2!("{}{}", Emoji("📃 ", ""), error("Log verbosity level: crazy")),
+        1 => v1!("{}{}", Emoji("📃 ", ""), warn("Log verbosity level: peaceful")),
         0 | _ => (),
     }
 
     v0!("DDNS with DNS has started {}", Emoji("✨", ""));
-    v1!("DNS: {}", info.apply_to(&options.dns));
+    v1!("DNS: {}", info(&options.dns));
     v1!("Will request public IP from [{}] every [{}] seconds.",
-                 info.apply_to(&options.ip_provider),
-                 info.apply_to(&options.interval));
+                 info(&options.ip_provider),
+                 info(&options.interval));
 
-    let mut interval_day = time::interval(Duration::from_secs(options.interval));
+    let mut timer = time::interval(Duration::from_secs(options.interval));
     loop {
-        v2!("Requesting {} for public IP ...", info.apply_to(&options.ip_provider));
+        timer.tick().await;
+
+        v2!("Requesting {} for public IP ...", info(&options.ip_provider));
+
         let started_at = SystemTime::now();
+        let ret = ip_provider::get_ip(&options.ip_provider).await;
+        match ret {
+            Ok(ip) => {
+                let duration = SystemTime::now().duration_since(started_at)
+                    .expect("Clock may have gone backwards");
 
-        sleep(Duration::from_millis(512));
-
-        let duration = SystemTime::now().duration_since(started_at)
-            .expect("Clock may have gone backwards");
-
-        v0!("{} Successfully get current public IP: {} (in {}ms)",
-            success.apply_to("✔"),
-            success.apply_to("1.1.1.1"),
-            info.apply_to(duration.as_millis()));
-
-        interval_day.tick().await;
+                v0!("{} Successfully got current public IP: {} (in {}ms)",
+                        success("✔"),
+                        success(ip),
+                        info(duration.as_millis()));
+            },
+            Err(err) => {
+                v0!("{} {}",
+                    error("⨯"),
+                    error(err).to_string());
+            }
+        }
     }
 }

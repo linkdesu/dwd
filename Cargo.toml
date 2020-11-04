@@ -9,6 +9,8 @@ edition = "2018"
 [dependencies]
 clap = "3.0.0-beta.2"
 console = "0.13.0"
-tokio = { version = "0.3.3", features = ["full"] }
-reqwest = "0.10.8"
+tokio = { version = "0.2", features = ["full"] }
+reqwest = { version = "0.10", features = ["json"] }
 vlog = "0.1.4"
+regex = "1"
+lazy_static = "1.4.0"
