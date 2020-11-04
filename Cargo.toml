@@ -1,0 +1,14 @@
+[package]
+name = "dwd"
+version = "0.1.0"
+authors = ["Link <xie.al@qq.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = "3.0.0-beta.2"
+console = "0.13.0"
+tokio = { version = "0.3.3", features = ["full"] }
+reqwest = "0.10.8"
+vlog = "0.1.4"
