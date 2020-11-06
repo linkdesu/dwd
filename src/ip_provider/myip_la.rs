@@ -13,3 +13,16 @@ use crate::util::get;
 pub async fn get_ip() -> Result<String, String> {
     get("https://api.myip.la").await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::super::util::is_ip;
+
+    #[tokio::test]
+    async fn get_ip_should_works () {
+        let ret = get_ip().await;
+        assert!(ret.is_ok());
+        assert!(is_ip(ret.as_ref().unwrap()));
+    }
+}

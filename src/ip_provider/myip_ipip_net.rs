@@ -17,7 +17,7 @@ pub async fn get_ip() -> Result<String, String> {
     let response = get("https://myip.ipip.net").await?;
 
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"IP：(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})").unwrap();
+        static ref RE: Regex = Regex::new(r"IP：((?:\d{1,3}\.){3}\d{1,3})").unwrap();
     }
     let ret = RE.captures(&response);
     if ret.is_none() {
@@ -26,4 +26,17 @@ pub async fn get_ip() -> Result<String, String> {
     }
 
     Ok(ret.unwrap().get(1).map_or("".into(), |m| m.as_str().into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::super::super::util::is_ip;
+
+    #[tokio::test]
+    async fn get_ip_should_works () {
+        let ret = get_ip().await;
+        assert!(ret.is_ok());
+        assert!(is_ip(ret.as_ref().unwrap()));
+    }
 }
