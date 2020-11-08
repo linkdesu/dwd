@@ -16,11 +16,11 @@ pub async fn get_ip() -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::util::is_ip;
+    use super::*;
 
     #[tokio::test]
-    async fn get_ip_should_works () {
+    async fn get_ip_should_works() {
         let ret = get_ip().await;
         assert!(ret.is_ok());
         assert!(is_ip(ret.as_ref().unwrap()));

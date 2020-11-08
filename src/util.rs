@@ -1,10 +1,10 @@
 use console::{Style, StyledObject};
-use reqwest::IntoUrl;
-use regex::Regex;
 use lazy_static::lazy_static;
+use regex::Regex;
+use reqwest::IntoUrl;
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 pub use vlog::{set_verbosity_level, v0, v1, v2, verbose_log};
-use std::net::{Ipv4Addr, Ipv6Addr};
 
 lazy_static! {
     static ref ERROR: Style = Style::new().red();
@@ -52,21 +52,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn is_ip_should_support_ipv4 () {
+    fn is_ip_should_support_ipv4() {
         assert!(is_ip("1.1.1.1"));
         assert!(is_ip("255.255.255.255"));
         assert!(is_ip("127.0.0.1"));
     }
 
     #[test]
-    fn is_ip_should_support_ipv6 () {
+    fn is_ip_should_support_ipv6() {
         assert!(is_ip("2001:0DB8:02de:0000:0000:0000:0000:0e13"));
         assert!(is_ip("2001:DB8:2de:0:0:0:0:e13"));
         assert!(is_ip("2001:DB8:2de::e13"));
     }
 
     #[test]
-    fn is_ip_should_failed_for_invalid_ip_string () {
+    fn is_ip_should_failed_for_invalid_ip_string() {
         assert!(!is_ip("hello world"));
         assert!(!is_ip("127.0.0"));
         assert!(!is_ip("999.999.999.999"));
