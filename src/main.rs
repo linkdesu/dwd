@@ -1,6 +1,6 @@
 use clap::Clap;
 use console::Emoji;
-use tokio::time;
+use dotenv::dotenv;
 use std::time::{Duration, SystemTime};
 use tokio::time;
 
@@ -72,6 +72,8 @@ struct Options {
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+
     // Parse options
     let options: Options = Options::parse();
     // println!("{:?}", options);
