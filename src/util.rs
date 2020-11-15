@@ -34,6 +34,14 @@ pub fn success<T>(content: T) -> StyledObject<T> {
     SUCCESS.apply_to(content)
 }
 
+pub fn cross() -> StyledObject<String> {
+    ERROR.apply_to(String::from("✗"))
+}
+
+pub fn check() -> StyledObject<String> {
+    SUCCESS.apply_to(String::from("✔"))
+}
+
 pub async fn get<T: IntoUrl>(url: T) -> Result<String, String> {
     reqwest::get(url)
         .await
