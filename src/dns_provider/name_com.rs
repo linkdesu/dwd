@@ -1,10 +1,11 @@
+use log::{debug, trace};
 use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::error::Error;
 use std::str;
 
-use super::super::util::{error, info, v0, v2, verbose_log};
+use super::super::util::{error_style, info_style};
 
 const BASE_URL: &str = "https://api.name.com/v4/domains/";
 
@@ -64,8 +65,8 @@ pub async fn update(
         env::var("NAME_COM_USERNAME").map_err(|_| "Please set env variable USERNAME.")?;
     let token = env::var("NAME_COM_TOKEN").map_err(|_| "Please set env variable TOKEN.")?;
 
-    println!("Username: {:?}", info(&username));
-    println!("Token: {:?}", info(&token));
+    trace!("Username: {:?}", info_style(&username));
+    trace!("Token: {:?}", info_style(&token));
 
     let client = Client::new();
     let base_url = Url::parse(BASE_URL).map_err(|e| e.to_string())?;
@@ -103,11 +104,11 @@ async fn find_record(
         .send()
         .await?;
 
-    println!("GET {} {}", response.url(), response.status());
+    trace!("GET {} {}", response.url(), response.status());
 
     if response.error_for_status_ref().is_err() {
         let api_error = response.json::<ApiError>().await?;
-        return Err(format!("API response error: {}", error(api_error.message)).into());
+        return Err(format!("API response error: {}", error_style(api_error.message)).into());
     }
 
     let record_list = response
@@ -126,7 +127,7 @@ async fn find_record(
         false
     });
 
-    println!("Find record from name.com: {:?}", record);
+    trace!("Find record from name.com: {:?}", record);
 
     Ok(record)
 }
@@ -139,27 +140,26 @@ async fn update_record(
     token: &str,
     record: Record,
 ) -> Result<(), Box<dyn Error>> {
-    println!("Update record to: {:?}", record);
-
     let url = base_url.join(&format!("{}/records/{}", record.domain_name, record.id))?;
     let request = client
         .put(url)
         .json(&record)
         .basic_auth(username, Some(token))
         .build()?;
-
-    println!("PUT {}", request.url());
-    println!(
-        "Body: {}",
-        str::from_utf8(request.body().unwrap().as_bytes().unwrap()).unwrap()
-    );
-
+    let raw_body = str::from_utf8(request.body().unwrap().as_bytes().unwrap())
+        .unwrap()
+        .to_owned();
     let response = client.execute(request).await?;
+
+    trace!("PUT {} {}", response.url(), response.status());
+    trace!("Body: {}", raw_body);
 
     if response.error_for_status_ref().is_err() {
         let api_error = response.json::<ApiError>().await?;
-        return Err(format!("API response error: {}", error(api_error.message)).into());
+        return Err(format!("API response error: {}", error_style(api_error.message)).into());
     }
+
+    trace!("Update record to: {:?}", record);
 
     Ok(())
 }

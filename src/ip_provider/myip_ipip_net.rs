@@ -1,7 +1,9 @@
 use lazy_static::lazy_static;
+use log::{log, trace};
 use regex::Regex;
+use std::error::Error;
 
-use super::super::util::{get, v2, verbose_log};
+use super::super::util::get;
 
 /// Get public IP from https://myip.ipip.net
 ///
@@ -13,7 +15,7 @@ use super::super::util::{get, v2, verbose_log};
 /// ```rust
 /// let ip = myip_ipip_net::get_ip().await?;
 /// ```
-pub async fn get_ip() -> Result<String, String> {
+pub async fn get_ip() -> Result<String, Box<dyn Error>> {
     let response = get("https://myip.ipip.net").await?;
 
     lazy_static! {
@@ -21,8 +23,8 @@ pub async fn get_ip() -> Result<String, String> {
     }
     let ret = RE.captures(&response);
     if ret.is_none() {
-        v2!("Response content: {}", &response);
-        return Err(String::from("Can not capture IP from response"));
+        trace!("Response content: {}", &response.to_string().trim_end());
+        return Err("Can not capture IP from response".into());
     }
 
     Ok(ret.unwrap().get(1).map_or("".into(), |m| m.as_str().into()))

@@ -4,12 +4,11 @@ use regex::Regex;
 use reqwest::IntoUrl;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-pub use vlog::{set_verbosity_level, v0, v1, v2, verbose_log};
-
 lazy_static! {
     static ref ERROR: Style = Style::new().red();
     static ref WARN: Style = Style::new().yellow();
     static ref INFO: Style = Style::new().cyan();
+    static ref DEBUG: Style = Style::new().magenta();
     static ref SUCCESS: Style = Style::new().green();
 }
 
@@ -18,28 +17,24 @@ lazy_static! {
     static ref IPV6_RE: Regex = Regex::new(r"i^(?:[0-9a-f]{1,4}\:){7}[0-9a-f]{1,4}$").unwrap();
 }
 
-pub fn error<T>(content: T) -> StyledObject<T> {
+pub fn error_style<T>(content: T) -> StyledObject<T> {
     ERROR.apply_to(content)
 }
 
-pub fn warn<T>(content: T) -> StyledObject<T> {
+pub fn warn_style<T>(content: T) -> StyledObject<T> {
     WARN.apply_to(content)
 }
 
-pub fn info<T>(content: T) -> StyledObject<T> {
+pub fn info_style<T>(content: T) -> StyledObject<T> {
     INFO.apply_to(content)
 }
 
-pub fn success<T>(content: T) -> StyledObject<T> {
+pub fn debug_style<T>(content: T) -> StyledObject<T> {
+    DEBUG.apply_to(content)
+}
+
+pub fn success_style<T>(content: T) -> StyledObject<T> {
     SUCCESS.apply_to(content)
-}
-
-pub fn cross() -> StyledObject<String> {
-    ERROR.apply_to(String::from("✗"))
-}
-
-pub fn check() -> StyledObject<String> {
-    SUCCESS.apply_to(String::from("✔"))
 }
 
 pub async fn get<T: IntoUrl>(url: T) -> Result<String, String> {

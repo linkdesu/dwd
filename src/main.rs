@@ -1,13 +1,15 @@
+use chrono::Local;
 use clap::Clap;
-use console::Emoji;
+use console::{Emoji, StyledObject};
 use dotenv::dotenv;
+use log::{debug, error, info, trace, warn, Level, LevelFilter};
+use std::io::Write;
 use std::time::{Duration, SystemTime};
 use tokio::time;
 
 use crate::util::is_ip;
-use util::{
-    check, cross, error, info, set_verbosity_level, success, v0, v1, v2, verbose_log, warn,
-};
+use std::process;
+use util::{debug_style, error_style, info_style, success_style, warn_style};
 
 mod dns_provider;
 mod ip_provider;
@@ -70,72 +72,59 @@ struct Options {
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok();
-
     // Parse options
     let options: Options = Options::parse();
     // println!("{:?}", options);
+
+    dotenv().ok();
+    init_log(&options);
 
     let mut last_updated_ip: Option<String> = None;
     let mut last_updated_at: Option<SystemTime> = None;
     let update_period = Duration::from_secs(options.record_ttl.into());
 
-    set_verbosity_level(options.verbose as usize);
-    match options.verbose {
-        2 => v2!(
-            "{}{}",
-            Emoji("📃 ", ""),
-            error("Log verbosity level: crazy")
-        ),
-        1 => v1!(
-            "{}{}",
-            Emoji("📃 ", ""),
-            warn("Log verbosity level: peaceful")
-        ),
-        0 | _ => (),
-    }
-
-    v0!("DDNS with DNS has started {}", Emoji("✨", ""));
-    v1!("DNS: {}", info(&options.dns));
-    v1!(
+    info!("DDNS with DNS has started {}", Emoji("✨", ""));
+    debug!("DNS: {}", info_style(&options.dns));
+    debug!(
         "Will request public IP from [{}] every [{}] seconds.",
-        info(&options.ip_provider),
-        info(&options.interval)
+        info_style(&options.ip_provider),
+        info_style(&options.interval)
     );
 
     let mut timer = time::interval(Duration::from_secs(options.interval));
     loop {
         timer.tick().await;
 
-        v2!(
+        trace!(
             "Requesting {} for public IP ...",
-            info(&options.ip_provider)
+            info_style(&options.ip_provider)
         );
 
         let started_at = SystemTime::now();
         let ret = ip_provider::get_ip(&options.ip_provider).await;
-        if let Err(e) = ret.as_ref() {
-            v0!("{} {}", cross(), error(e).to_string());
-        }
         let duration = SystemTime::now()
             .duration_since(started_at)
             .expect("Clock may have gone backwards");
 
+        if ret.is_err() {
+            continue;
+        }
+
         let ip = ret.unwrap();
 
         if !is_ip(&ip) {
-            v0!(
-                "{} Successfully updated dns record! (in {}ms)",
-                cross(),
-                info(duration.as_millis())
+            info!(
+                target: "success",
+                "Successfully updated dns record! (in {}ms)",
+                info_style(duration.as_millis())
             );
             continue;
         } else {
-            v0!(
-                "{} Successfully got current public IP: {} (in {}ms)",
-                check(),
-                success(&ip),
-                info(duration.as_millis())
+            info!(
+                target: "success",
+                "Successfully got current public IP: {} (in {}ms)",
+                success_style(&ip),
+                info_style(duration.as_millis())
             );
         }
 
@@ -146,12 +135,15 @@ async fn main() {
                 .duration_since(last_updated_at.to_owned().unwrap())
                 .expect("Clock may have gone backwards");
             if last_updated_ip.as_ref().unwrap() == &ip && since_last_updated < update_period {
-                v2!("Skip updating public IP.");
+                trace!("Skip updating public IP.");
                 continue;
             }
         }
 
-        v2!("Requesting {} to update DNS record ...", info(&options.dns));
+        trace!(
+            "Requesting {} to update DNS record ...",
+            info_style(&options.dns)
+        );
 
         let started_at = SystemTime::now();
         let ret = dns_provider::update_record(
@@ -167,22 +159,73 @@ async fn main() {
             .duration_since(started_at)
             .expect("Clock may have gone backwards");
 
-        if ret.is_ok() {
-            // Save IP and SystemTime when DNS update succeeds.
-            last_updated_ip = Some(ip);
-            last_updated_at = Some(SystemTime::now());
-
-            v0!(
-                "{} Successfully updated dns record! (in {}ms)",
-                check(),
-                info(duration.as_millis())
-            );
-        } else {
-            v0!(
-                "{} Successfully updated dns record! (in {}ms)",
-                cross(),
-                info(duration.as_millis())
-            );
+        if ret.is_err() {
+            continue;
         }
+
+        // Save IP and SystemTime when DNS update succeeds.
+        last_updated_ip = Some(ip);
+        last_updated_at = Some(SystemTime::now());
+
+        info!(
+            target: "success",
+            "Successfully updated dns record! (in {}ms)",
+            info_style(duration.as_millis())
+        );
+    }
+}
+
+fn init_log(options: &Options) {
+    let level = match options.verbose {
+        2 => LevelFilter::Trace,
+        1 => LevelFilter::Debug,
+        _ => LevelFilter::Info,
+    };
+
+    let mut builder = env_logger::Builder::new();
+    builder
+        .filter(Some("dwd"), level)
+        .filter(Some("error"), level)
+        .filter(Some("success"), level)
+        .format(|buf, record| {
+            let mut char = match record.target() {
+                "success" => success_style("✔ "),
+                "error" => error_style("✗ "),
+                _ => success_style(""),
+            };
+            if record.level() == Level::Error {
+                char = error_style("✗ ");
+            }
+
+            let level = match record.level() {
+                Level::Error => error_style(record.level()),
+                Level::Warn => warn_style(record.level()),
+                Level::Info => info_style(record.level()),
+                _ => debug_style(record.level()),
+            };
+
+            writeln!(
+                buf,
+                "[{}] [{:<5}] {}{}",
+                Local::now().format("%Y-%m-%d %H:%M:%S"),
+                level,
+                char,
+                &record.args(),
+            )
+        })
+        .init();
+
+    match options.verbose {
+        2 => trace!(
+            "{}{}",
+            Emoji("📃 ", ""),
+            error_style("Log verbosity level: trace")
+        ),
+        1 => debug!(
+            "{}{}",
+            Emoji("📃 ", ""),
+            warn_style("Log verbosity level: debug")
+        ),
+        0 | _ => (),
     }
 }

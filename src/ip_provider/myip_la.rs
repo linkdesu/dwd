@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use crate::util::get;
 
 /// Get public IP from https://api.myip.la
@@ -10,8 +12,8 @@ use crate::util::get;
 /// ```rust
 /// let ip = myip_la::get_ip().await?;
 /// ```
-pub async fn get_ip() -> Result<String, String> {
-    get("https://api.myip.la").await
+pub async fn get_ip() -> Result<String, Box<dyn Error>> {
+    get("https://api.myip.la").await.map_err(|e| e.into())
 }
 
 #[cfg(test)]
