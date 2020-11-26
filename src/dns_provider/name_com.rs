@@ -1,4 +1,4 @@
-use log::{debug, trace};
+use log::trace;
 use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -48,6 +48,7 @@ struct RecordList {
 
 /// Update DNS record on name.com
 ///
+/// The API version is V4.
 /// The document of name.com API: https://www.name.com/api-docs/
 ///
 /// # Example:

@@ -1,10 +1,10 @@
 //! This is DNS provider module, take a look at name_com.rs for how to add your own provider.
 //! At last don't forget to add it to the `fn update_record` below.
 
-use log::error;
+use log::{error, debug};
 use std::process;
 
-use super::util::error_style;
+use super::util::{error_style, info_style};
 
 mod name_com;
 
@@ -19,6 +19,8 @@ pub async fn update_record(
     ip: &str,
     record_ttl: &u32,
 ) -> Result<(), ()> {
+    debug!("Requesting {} to update DNS record ...", info_style(provider));
+
     let ret = match provider {
         "name.com" => name_com::update(domain, record_type, record_host, ip, record_ttl).await,
         // "aliyun" => todo!(),

@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use log::{log, trace};
+use log::trace;
 use regex::Regex;
 use std::error::Error;
 

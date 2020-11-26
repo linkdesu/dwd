@@ -1,8 +1,10 @@
-use console::{Style, StyledObject};
 use lazy_static::lazy_static;
+use log::trace;
+use console::{Style, StyledObject};
 use regex::Regex;
 use reqwest::IntoUrl;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::error::Error;
 
 lazy_static! {
     static ref ERROR: Style = Style::new().red();
@@ -37,13 +39,12 @@ pub fn success_style<T>(content: T) -> StyledObject<T> {
     SUCCESS.apply_to(content)
 }
 
-pub async fn get<T: IntoUrl>(url: T) -> Result<String, String> {
-    reqwest::get(url)
-        .await
-        .map_err(|err| err.to_string())?
-        .text()
-        .await
-        .map_err(|err| err.to_string())
+pub async fn get<T: IntoUrl>(url: T) -> Result<String, Box<dyn Error>> {
+    let response = reqwest::get(url).await?;
+
+    trace!("GET {} {}", response.url(), response.status());
+
+    response.text().await.map_err(|e| e.into())
 }
 
 pub fn is_ip(ip: &str) -> bool {

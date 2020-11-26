@@ -1,14 +1,13 @@
 use chrono::Local;
 use clap::Clap;
-use console::{Emoji, StyledObject};
+use console::Emoji;
 use dotenv::dotenv;
-use log::{debug, error, info, trace, warn, Level, LevelFilter};
+use log::{error, debug, info, trace, Level, LevelFilter};
 use std::io::Write;
 use std::time::{Duration, SystemTime};
 use tokio::time;
 
 use crate::util::is_ip;
-use std::process;
 use util::{debug_style, error_style, info_style, success_style, warn_style};
 
 mod dns_provider;
@@ -95,11 +94,6 @@ async fn main() {
     loop {
         timer.tick().await;
 
-        trace!(
-            "Requesting {} for public IP ...",
-            info_style(&options.ip_provider)
-        );
-
         let started_at = SystemTime::now();
         let ret = ip_provider::get_ip(&options.ip_provider).await;
         let duration = SystemTime::now()
@@ -113,11 +107,7 @@ async fn main() {
         let ip = ret.unwrap();
 
         if !is_ip(&ip) {
-            info!(
-                target: "success",
-                "Successfully updated dns record! (in {}ms)",
-                info_style(duration.as_millis())
-            );
+            error!(target: "error", "Got an invalid IP address!");
             continue;
         } else {
             info!(
@@ -135,15 +125,10 @@ async fn main() {
                 .duration_since(last_updated_at.to_owned().unwrap())
                 .expect("Clock may have gone backwards");
             if last_updated_ip.as_ref().unwrap() == &ip && since_last_updated < update_period {
-                trace!("Skip updating public IP.");
+                info!("No need to update, skip.");
                 continue;
             }
         }
-
-        trace!(
-            "Requesting {} to update DNS record ...",
-            info_style(&options.dns)
-        );
 
         let started_at = SystemTime::now();
         let ret = dns_provider::update_record(
