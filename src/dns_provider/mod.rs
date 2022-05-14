@@ -1,7 +1,7 @@
 //! This is DNS provider module, take a look at name_com.rs for how to add your own provider.
 //! At last don't forget to add it to the `fn update_record` below.
 
-use log::{error, debug};
+use log::{debug, error};
 use std::process;
 
 use super::util::{error_style, info_style};

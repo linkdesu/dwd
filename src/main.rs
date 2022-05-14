@@ -1,10 +1,12 @@
 use chrono::Local;
-use clap::Clap;
+use clap::Parser;
 use console::Emoji;
 use dotenv::dotenv;
-use log::{error, debug, info, trace, Level, LevelFilter};
-use std::io::Write;
-use std::time::{Duration, SystemTime};
+use log::{debug, error, info, trace, Level, LevelFilter};
+use std::{
+    io::Write,
+    time::{Duration, SystemTime},
+};
 use tokio::time;
 
 use crate::util::is_ip;
@@ -14,57 +16,45 @@ mod dns_provider;
 mod ip_provider;
 mod util;
 
-#[derive(Clap, Debug)]
-#[clap(version = "1.0", author = "Link Xie. <xieaolin@gmail.com>")]
+#[derive(Parser, Debug)]
+#[clap(author, version)]
 struct Options {
     #[clap(
         short = 'd',
         long = "dns",
         required = true,
-        about = "The DNS who providing resolving of your host."
+        help = "The DNS who providing resolving of your host."
     )]
     dns: String,
     #[clap(
         short = 'i',
         long = "ip-provider",
         required = true,
-        about = "The provider who detecting and providing your public IP."
+        help = "The provider who detecting and providing your public IP."
     )]
     ip_provider: String,
     #[clap(
         long = "interval",
         default_value = "60",
-        about = "The interval to request IP provider for public IP."
+        help = "The interval to request IP provider for public IP."
     )]
     interval: u64,
-    #[clap(
-        long = "domain",
-        required = true,
-        about = "The domain of your DNS record."
-    )]
+    #[clap(long = "domain", required = true, help = "The domain of your DNS record.")]
     domain: String,
-    #[clap(
-        long = "record-type",
-        default_value = "A",
-        about = "The type of your DNS record."
-    )]
+    #[clap(long = "record-type", default_value = "A", help = "The type of your DNS record.")]
     record_type: String,
     #[clap(
         long = "record-host",
-        about = "The host of your DNS record, just like what your config on DNS."
+        help = "The host of your DNS record, just like what your config on DNS."
     )]
     record_host: Option<String>,
-    #[clap(
-        long = "record-ttl",
-        default_value = "300",
-        about = "The ttl of your DNS record."
-    )]
+    #[clap(long = "record-ttl", default_value = "300", help = "The ttl of your DNS record.")]
     record_ttl: u32,
     #[clap(
         short = 'v',
         long = "verbose",
         parse(from_occurrences),
-        about = "The level of log verbosity."
+        help = "The level of log verbosity."
     )]
     verbose: u32,
 }
@@ -201,16 +191,8 @@ fn init_log(options: &Options) {
         .init();
 
     match options.verbose {
-        2 => trace!(
-            "{}{}",
-            Emoji("📃 ", ""),
-            error_style("Log verbosity level: trace")
-        ),
-        1 => debug!(
-            "{}{}",
-            Emoji("📃 ", ""),
-            warn_style("Log verbosity level: debug")
-        ),
+        2 => trace!("{}{}", Emoji("📃 ", ""), error_style("Log verbosity level: trace")),
+        1 => debug!("{}{}", Emoji("📃 ", ""), warn_style("Log verbosity level: debug")),
         0 | _ => (),
     }
 }

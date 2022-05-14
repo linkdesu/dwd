@@ -62,8 +62,7 @@ pub async fn update(
     ip: &str,
     record_ttl: &u32,
 ) -> Result<(), Box<dyn Error>> {
-    let username =
-        env::var("NAME_COM_USERNAME").map_err(|_| "Please set env variable USERNAME.")?;
+    let username = env::var("NAME_COM_USERNAME").map_err(|_| "Please set env variable USERNAME.")?;
     let token = env::var("NAME_COM_TOKEN").map_err(|_| "Please set env variable TOKEN.")?;
 
     trace!("Username: {:?}", info_style(&username));
@@ -99,11 +98,7 @@ async fn find_record(
     record_host: Option<&str>,
 ) -> Result<Option<Record>, Box<dyn Error>> {
     let url = base_url.join(&format!("{}/records", domain))?;
-    let response = client
-        .get(url)
-        .basic_auth(username, Some(token))
-        .send()
-        .await?;
+    let response = client.get(url).basic_auth(username, Some(token)).send().await?;
 
     trace!("GET {} {}", response.url(), response.status());
 
@@ -112,16 +107,11 @@ async fn find_record(
         return Err(format!("API response error: {}", error_style(api_error.message)).into());
     }
 
-    let record_list = response
-        .json::<RecordList>()
-        .await
-        .map_err(|e| e.to_string())?;
+    let record_list = response.json::<RecordList>().await.map_err(|e| e.to_string())?;
     let record = record_list.records.into_iter().find(|record| {
         if record_host.is_none() && record.record_host.is_none() {
             return true;
-        } else if record.record_host.is_some()
-            && record_host.unwrap() == record.record_host.as_ref().unwrap()
-        {
+        } else if record.record_host.is_some() && record_host.unwrap() == record.record_host.as_ref().unwrap() {
             return true;
         }
 
@@ -188,16 +178,8 @@ mod tests {
     async fn find_record_should_works() {
         let (client, url, username, password) = before();
 
-        let ret = find_record(
-            &client,
-            &url,
-            &username,
-            &password,
-            "xieal.me",
-            Some("test"),
-        )
-        .await;
-        assert!(ret.is_ok(), ret.unwrap_err().to_string());
+        let ret = find_record(&client, &url, &username, &password, "xieal.me", Some("test")).await;
+        assert!(ret.is_ok(), "{}", ret.unwrap_err().to_string());
 
         let record = ret.unwrap().unwrap();
         assert_eq!(record.domain_name, String::from("xieal.me"));
@@ -218,6 +200,6 @@ mod tests {
         };
 
         let ret = update_record(&client, &url, &username, &password, record).await;
-        assert!(ret.is_ok(), ret.unwrap_err().to_string());
+        assert!(ret.is_ok(), "{}", ret.unwrap_err().to_string());
     }
 }

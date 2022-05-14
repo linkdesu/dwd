@@ -1,10 +1,10 @@
+use console::{Style, StyledObject};
 use lazy_static::lazy_static;
 use log::trace;
-use console::{Style, StyledObject};
 use regex::Regex;
 use reqwest::IntoUrl;
-use std::net::{Ipv4Addr, Ipv6Addr};
 use std::error::Error;
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 lazy_static! {
     static ref ERROR: Style = Style::new().red();
