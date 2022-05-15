@@ -8,6 +8,7 @@ use std::convert::TryFrom;
 
 use super::util::{error_style, info_style};
 
+mod dynv6_com;
 mod name_com;
 
 lazy_static! {
@@ -73,7 +74,7 @@ async fn update_record(
 ) {
     let ret = match provider {
         DnsProvider::NameCom => name_com::update(domain, ip, record_type, record_host, record_ttl).await,
-        DnsProvider::Dynv6Com => todo!(),
+        DnsProvider::Dynv6Com => dynv6_com::update(domain, ip).await,
     };
 
     if let Err(e) = ret {
