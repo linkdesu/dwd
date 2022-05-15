@@ -12,6 +12,7 @@ use tokio::time;
 use crate::util::is_ip;
 use util::{debug_style, error_style, info_style, success_style, warn_style};
 
+mod config;
 mod dns_provider;
 mod ip_provider;
 mod util;
@@ -23,22 +24,22 @@ struct Options {
         short = 'd',
         long = "dns",
         required = true,
-        help = "The DNS who providing resolving of your host."
+        help = "The DNS or DDNS who providing resolving of your host.(supported: name.com, dynv6.com)"
     )]
-    dns: String,
+    dns: Vec<String>,
     #[clap(
         short = 'i',
         long = "ip-provider",
         required = true,
         help = "The provider who detecting and providing your public IP."
     )]
-    ip_provider: String,
+    ip_provider: Vec<String>,
     #[clap(
         long = "interval",
         default_value = "60",
         help = "The interval to request IP provider for public IP."
     )]
-    interval: u64,
+    interval: u32,
     #[clap(long = "domain", required = true, help = "The domain of your DNS record.")]
     domain: String,
     #[clap(long = "record-type", default_value = "A", help = "The type of your DNS record.")]
@@ -73,24 +74,24 @@ async fn main() {
     let update_period = Duration::from_secs(options.record_ttl.into());
 
     info!("DDNS with DNS has started {}", Emoji("✨", ""));
-    debug!("DNS: {}", info_style(&options.dns));
+    debug!("DNS: {}", info_style(&options.dns.join(", ")));
     debug!(
         "Will request public IP from [{}] every [{}] seconds.",
-        info_style(&options.ip_provider),
+        info_style(&options.ip_provider.join(", ")),
         info_style(&options.interval)
     );
 
-    let mut timer = time::interval(Duration::from_secs(options.interval));
+    let mut timer = time::interval(Duration::from_secs(options.interval as u64));
     loop {
         timer.tick().await;
 
         let started_at = SystemTime::now();
-        let ret = ip_provider::get_ip(&options.ip_provider).await;
+        let ret = ip_provider::get_ip_by_fallback(&options.ip_provider).await;
         let duration = SystemTime::now()
             .duration_since(started_at)
             .expect("Clock may have gone backwards");
 
-        if ret.is_err() {
+        if ret.is_none() {
             continue;
         }
 
@@ -121,22 +122,18 @@ async fn main() {
         }
 
         let started_at = SystemTime::now();
-        let ret = dns_provider::update_record(
+        dns_provider::update_dns_for_all(
             &options.dns,
             &options.domain,
+            &ip,
             &options.record_type,
             options.record_host.as_deref(),
-            &ip,
             &options.record_ttl,
         )
         .await;
         let duration = SystemTime::now()
             .duration_since(started_at)
             .expect("Clock may have gone backwards");
-
-        if ret.is_err() {
-            continue;
-        }
 
         // Save IP and SystemTime when DNS update succeeds.
         last_updated_ip = Some(ip);

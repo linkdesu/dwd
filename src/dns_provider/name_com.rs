@@ -57,9 +57,9 @@ struct RecordList {
 /// ```
 pub async fn update(
     domain: &str,
+    ip: &str,
     record_type: &str,
     record_host: Option<&str>,
-    ip: &str,
     record_ttl: &u32,
 ) -> Result<(), Box<dyn Error>> {
     let username = env::var("NAME_COM_USERNAME").map_err(|_| "Please set env variable USERNAME.")?;
