@@ -2,14 +2,15 @@
 //! At last don't forget to add it to the `fn update_record` below.
 
 use lazy_static::lazy_static;
-use log::{debug, error};
+use log::{debug, error, info};
 use simple_error::SimpleError;
 use std::convert::TryFrom;
 
+use super::config::Config;
 use super::util::{error_style, info_style};
 
-mod dynv6_com;
-mod name_com;
+pub mod dynv6_com;
+pub mod name_com;
 
 lazy_static! {
     pub static ref DNS_PROVIDERS: Vec<&'static str> = vec!["name.com", "dynv6.com"];
@@ -37,14 +38,8 @@ impl TryFrom<&str> for DnsProvider {
 /// Update record through DNS provider API
 ///
 /// ⚠️ This function suppose to be never crash!
-pub async fn update_dns_for_all(
-    providers: &[String],
-    domain: &str,
-    ip: &str,
-    record_type: &str,
-    record_host: Option<&str>,
-    record_ttl: &u32,
-) {
+pub async fn update_dns_for_all(conf: &Config, ip: &str) {
+    let providers = &conf.dns_provider;
     debug!(
         "Requesting {} to update DNS record ...",
         info_style(providers.join(", "))
@@ -60,24 +55,25 @@ pub async fn update_dns_for_all(
             }
         };
 
-        update_record(provider, domain, ip, record_type, record_host, record_ttl).await;
+        update_record(conf, provider, ip).await;
     }
 }
 
-async fn update_record(
-    provider: DnsProvider,
-    domain: &str,
-    ip: &str,
-    record_type: &str,
-    record_host: Option<&str>,
-    record_ttl: &u32,
-) {
+async fn update_record(conf: &Config, provider: DnsProvider, ip: &str) {
     let ret = match provider {
-        DnsProvider::NameCom => name_com::update(domain, ip, record_type, record_host, record_ttl).await,
-        DnsProvider::Dynv6Com => dynv6_com::update(domain, ip).await,
+        DnsProvider::NameCom => match conf.name_com.as_ref() {
+            Some(sub_conf) => name_com::update(sub_conf, ip).await,
+            None => Err("The config.name_com is required.".into()),
+        },
+        DnsProvider::Dynv6Com => match conf.dynv6_com.as_ref() {
+            Some(sub_conf) => dynv6_com::update(sub_conf, ip).await,
+            None => Err("The config.dynv6_com is required.".into()),
+        },
     };
 
     if let Err(e) = ret {
         error!(target: "error", "Update DNS provider {:?} failed, error: {}", provider, e);
+    } else {
+        info!( target: "success", "Successfully updated DNS provider {:?}.", provider );
     }
 }

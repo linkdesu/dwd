@@ -1,0 +1,17 @@
+dns:
+    - "name.com"
+ip_provider:
+    - "myip.la"
+interval: 300
+
+name_com:
+    domain: "your.example.com"
+    username: ""
+    token: ""
+    record_type: "A"
+    record_host: "your"
+    record_ttl: 300
+
+dynv6_com:
+    zone: ""
+    token: ""

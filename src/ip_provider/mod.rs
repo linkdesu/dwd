@@ -3,7 +3,7 @@
 //! At last don't forget to add it to the `fn get_ip` below.
 use log::{debug, error};
 use simple_error::SimpleError;
-use std::{convert::TryFrom, process};
+use std::convert::TryFrom;
 
 use super::util::{error_style, info_style};
 

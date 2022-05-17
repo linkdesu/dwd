@@ -30,10 +30,10 @@ struct Record {
 }
 
 impl Record {
-    fn update(&mut self, record_type: &str, record_answer: &str, record_ttl: &u32) {
+    fn update(&mut self, record_type: &str, record_answer: &str, record_ttl: u32) {
         self.record_type = String::from(record_type);
         self.record_answer = String::from(record_answer);
-        self.record_ttl = *record_ttl;
+        self.record_ttl = record_ttl;
     }
 }
 
@@ -46,6 +46,16 @@ struct RecordList {
     last_page: Option<i32>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigNameCom {
+    pub domain: String,
+    pub username: Option<String>,
+    pub token: Option<String>,
+    pub record_type: String,
+    pub record_host: Option<String>,
+    pub record_ttl: u32,
+}
+
 /// Update DNS record on name.com
 ///
 /// The API version is V4.
@@ -55,15 +65,16 @@ struct RecordList {
 /// ```rust
 /// name_com::update(domain, record_type, record_host, ip, record_ttl).await?;
 /// ```
-pub async fn update(
-    domain: &str,
-    ip: &str,
-    record_type: &str,
-    record_host: Option<&str>,
-    record_ttl: &u32,
-) -> Result<(), Box<dyn Error>> {
-    let username = env::var("NAME_COM_USERNAME").map_err(|_| "Please set env variable USERNAME.")?;
-    let token = env::var("NAME_COM_TOKEN").map_err(|_| "Please set env variable TOKEN.")?;
+pub async fn update(conf: &ConfigNameCom, ip: &str) -> Result<(), Box<dyn Error>> {
+    let username = match conf.username.as_ref() {
+        Some(val) => val.to_owned(),
+        None => env::var("NAME_COM_USERNAME")
+            .map_err(|_| "Please set username in config file or through env variable USERNAME.")?,
+    };
+    let token = match conf.token.as_ref() {
+        Some(val) => val.to_owned(),
+        None => env::var("NAME_COM_TOKEN").map_err(|_| "Please set env variable TOKEN.")?,
+    };
 
     trace!("Username: {:?}", info_style(&username));
     trace!("Token: {:?}", info_style(&token));
@@ -71,13 +82,13 @@ pub async fn update(
     let client = Client::new();
     let base_url = Url::parse(BASE_URL).map_err(|e| e.to_string())?;
 
-    let ret = find_record(&client, &base_url, &username, &token, domain, record_host).await?;
+    let ret = find_record(&client, &base_url, &username, &token, &conf.domain, &conf.record_host).await?;
     if ret.is_none() {
         todo!()
     }
 
     let mut record = ret.unwrap();
-    record.update(record_type, ip, record_ttl);
+    record.update(&conf.record_type, ip, conf.record_ttl);
 
     update_record(&client, &base_url, &username, &token, record).await?;
 
@@ -95,7 +106,7 @@ async fn find_record(
     username: &str,
     token: &str,
     domain: &str,
-    record_host: Option<&str>,
+    record_host: &Option<String>,
 ) -> Result<Option<Record>, Box<dyn Error>> {
     let url = base_url.join(&format!("{}/records", domain))?;
     let response = client.get(url).basic_auth(username, Some(token)).send().await?;
@@ -111,7 +122,7 @@ async fn find_record(
     let record = record_list.records.into_iter().find(|record| {
         if record_host.is_none() && record.record_host.is_none() {
             return true;
-        } else if record.record_host.is_some() && record_host.unwrap() == record.record_host.as_ref().unwrap() {
+        } else if record.record_host.is_some() && record_host == &record.record_host {
             return true;
         }
 

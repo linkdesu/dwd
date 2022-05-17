@@ -5,11 +5,11 @@ use dotenv::dotenv;
 use log::{debug, error, info, trace, Level, LevelFilter};
 use std::{
     io::Write,
+    process,
     time::{Duration, SystemTime},
 };
 use tokio::time;
 
-use crate::util::is_ip;
 use util::{debug_style, error_style, info_style, success_style, warn_style};
 
 mod config;
@@ -21,36 +21,12 @@ mod util;
 #[clap(author, version)]
 struct Options {
     #[clap(
-        short = 'd',
-        long = "dns",
+        short = 'c',
+        long = "config",
         required = true,
-        help = "The DNS or DDNS who providing resolving of your host.(supported: name.com, dynv6.com)"
+        help = "Use a config file to configure behaviors intead of the command line options."
     )]
-    dns: Vec<String>,
-    #[clap(
-        short = 'i',
-        long = "ip-provider",
-        required = true,
-        help = "The provider who detecting and providing your public IP."
-    )]
-    ip_provider: Vec<String>,
-    #[clap(
-        long = "interval",
-        default_value = "60",
-        help = "The interval to request IP provider for public IP."
-    )]
-    interval: u32,
-    #[clap(long = "domain", required = true, help = "The domain of your DNS record.")]
-    domain: String,
-    #[clap(long = "record-type", default_value = "A", help = "The type of your DNS record.")]
-    record_type: String,
-    #[clap(
-        long = "record-host",
-        help = "The host of your DNS record, just like what your config on DNS."
-    )]
-    record_host: Option<String>,
-    #[clap(long = "record-ttl", default_value = "300", help = "The ttl of your DNS record.")]
-    record_ttl: u32,
+    config: String,
     #[clap(
         short = 'v',
         long = "verbose",
@@ -69,24 +45,32 @@ async fn main() {
     dotenv().ok();
     init_log(&options);
 
+    let conf = match config::load_config(&options.config) {
+        Ok(val) => val,
+        Err(err) => {
+            error!(target: "error", "{}", err);
+            process::exit(1);
+        }
+    };
+
     let mut last_updated_ip: Option<String> = None;
     let mut last_updated_at: Option<SystemTime> = None;
-    let update_period = Duration::from_secs(options.record_ttl.into());
+    let update_period = Duration::from_secs(conf.interval as u64);
 
     info!("DDNS with DNS has started {}", Emoji("✨", ""));
-    debug!("DNS: {}", info_style(&options.dns.join(", ")));
     debug!(
-        "Will request public IP from [{}] every [{}] seconds.",
-        info_style(&options.ip_provider.join(", ")),
-        info_style(&options.interval)
+        "Will request public IP from [{}] every {} seconds and update to [{}].",
+        info_style(&conf.ip_provider.join(", ")),
+        info_style(&conf.interval),
+        info_style(&conf.dns_provider.join(", "))
     );
 
-    let mut timer = time::interval(Duration::from_secs(options.interval as u64));
+    let mut timer = time::interval(Duration::from_secs(conf.interval as u64));
     loop {
         timer.tick().await;
 
         let started_at = SystemTime::now();
-        let ret = ip_provider::get_ip_by_fallback(&options.ip_provider).await;
+        let ret = ip_provider::get_ip_by_fallback(&conf.ip_provider).await;
         let duration = SystemTime::now()
             .duration_since(started_at)
             .expect("Clock may have gone backwards");
@@ -97,7 +81,7 @@ async fn main() {
 
         let ip = ret.unwrap();
 
-        if !is_ip(&ip) {
+        if !util::is_ip(&ip) {
             error!(target: "error", "Got an invalid IP address!");
             continue;
         } else {
@@ -122,15 +106,7 @@ async fn main() {
         }
 
         let started_at = SystemTime::now();
-        dns_provider::update_dns_for_all(
-            &options.dns,
-            &options.domain,
-            &ip,
-            &options.record_type,
-            options.record_host.as_deref(),
-            &options.record_ttl,
-        )
-        .await;
+        dns_provider::update_dns_for_all(&conf, &ip).await;
         let duration = SystemTime::now()
             .duration_since(started_at)
             .expect("Clock may have gone backwards");
@@ -139,11 +115,7 @@ async fn main() {
         last_updated_ip = Some(ip);
         last_updated_at = Some(SystemTime::now());
 
-        info!(
-            target: "success",
-            "Successfully updated dns record! (in {}ms)",
-            info_style(duration.as_millis())
-        );
+        info!("Updated in {}ms {}", info_style(duration.as_millis()), Emoji("🕐", ""));
     }
 }
 

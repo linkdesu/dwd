@@ -9,6 +9,12 @@ use super::super::util::{error_style, info_style};
 
 const BASE_URL: &str = "https://dynv6.com/api/update";
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConfigDynv6Com {
+    pub zone: String,
+    pub token: Option<String>,
+}
+
 /// Update DDNS record on dynv6.com
 ///
 /// The document of dynv6.com API: https://dynv6.com/docs/apis#rest
@@ -17,8 +23,11 @@ const BASE_URL: &str = "https://dynv6.com/api/update";
 /// ```rust
 /// dynv6_com::update(domain, record_type, record_host, ip, record_ttl).await?;
 /// ```
-pub async fn update(domain: &str, ip: &str) -> Result<(), Box<dyn Error>> {
-    let token = env::var("DYNV6_COM_TOKEN").map_err(|_| "Please set env variable DYNV6_COM_TOKEN.")?;
+pub async fn update(conf: &ConfigDynv6Com, ip: &str) -> Result<(), Box<dyn Error>> {
+    let token = match conf.token.as_ref() {
+        Some(val) => val.to_owned(),
+        None => env::var("DYNV6_COM_TOKEN").map_err(|_| "Please set env variable DYNV6_COM_TOKEN.")?,
+    };
 
     trace!("Token: {:?}", info_style(&token));
 
@@ -27,7 +36,7 @@ pub async fn update(domain: &str, ip: &str) -> Result<(), Box<dyn Error>> {
 
     let request = client
         .get(base_url)
-        .query(&[("zone", domain), ("token", token.as_str()), ("ipv4", ip)])
+        .query(&[("zone", conf.zone.as_str()), ("token", token.as_str()), ("ipv4", ip)])
         .build()?;
     let response = client.execute(request).await?;
 
@@ -37,7 +46,7 @@ pub async fn update(domain: &str, ip: &str) -> Result<(), Box<dyn Error>> {
         return Err(format!("API response error: {}", error_style(err)).into());
     }
 
-    trace!("Update record to: {:?}", domain);
+    trace!("Update record to: {:?}", conf.zone);
 
     Ok(())
 }

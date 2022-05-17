@@ -1,0 +1,16 @@
+dns = ["name.com", "dynv6.com"]
+ip_provider = ["myip.la", "ipip.net", "vnet.one"]
+interval = 300
+
+[name_com]
+domain = "your.example.com"
+username = ""
+token = ""
+record_type = "A"
+record_host = "your"
+record_ttl = 300
+
+[dynv6_com]
+zone = "your.dynv6.net"
+token = ""
+
