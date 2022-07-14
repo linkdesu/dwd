@@ -1,4 +1,4 @@
-dns:
+dns_provider:
     - "name.com"
 ip_provider:
     - "myip.la"

@@ -1,5 +1,5 @@
 {
-    "dns": ["name.com"],
+    "dns_provider": ["name.com"],
     "ip_provider": ["myip.la"],
     "interval": 3000,
     "name_com": {

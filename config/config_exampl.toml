@@ -1,4 +1,4 @@
-dns = ["name.com", "dynv6.com"]
+dns_provider = ["name.com", "dynv6.com"]
 ip_provider = ["myip.la", "ipip.net", "vnet.one"]
 interval = 300
 
