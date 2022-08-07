@@ -188,13 +188,14 @@ mod tests {
     #[tokio::test]
     async fn find_record_should_works() {
         let (client, url, username, password) = before();
-
-        let ret = find_record(&client, &url, &username, &password, "xieal.me", Some("test")).await;
+        let record = Some(String::from("dwd-unittest"));
+        let ret = find_record(&client, &url, &username, &password, "xieal.me", &record).await;
         assert!(ret.is_ok(), "{}", ret.unwrap_err().to_string());
 
+        println!("ret = {:?}", ret);
         let record = ret.unwrap().unwrap();
         assert_eq!(record.domain_name, String::from("xieal.me"));
-        assert_eq!(record.record_host, Some(String::from("test")));
+        assert_eq!(record.record_host, Some(String::from("dwd-unittest")));
         assert!(is_ip(&record.record_answer));
     }
 
@@ -202,9 +203,9 @@ mod tests {
     async fn update_record_should_works() {
         let (client, url, username, password) = before();
         let record = Record {
-            id: 186472068,
+            id: 214943323, // WARNING, This is retrieved by find_record.
             domain_name: String::from("xieal.me"),
-            record_host: Some(String::from("test")),
+            record_host: Some(String::from("dwd-unittest")),
             record_type: String::from("A"),
             record_answer: String::from("127.0.0.1"),
             record_ttl: 300,

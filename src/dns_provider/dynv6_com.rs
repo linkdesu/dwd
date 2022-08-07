@@ -60,7 +60,11 @@ mod tests {
     async fn dynv6_update_should_works() {
         dotenv().ok();
 
-        let ret = update("dwd-unittest.dynv6.net", "127.0.0.1").await;
+        let config = ConfigDynv6Com {
+            zone: String::from("dwd-unittest.dynv6.net"),
+            token: None,
+        };
+        let ret = update(&config, "127.0.0.1").await;
         assert!(ret.is_ok(), "{}", ret.unwrap_err().to_string());
     }
 }
