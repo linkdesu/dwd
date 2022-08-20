@@ -33,7 +33,7 @@ impl TryFrom<&str> for IpProvider {
 }
 
 /// Get public IP from different provider.
-pub async fn get_ip_by_fallback(providers: &[String]) -> Option<String> {
+pub async fn get_ip_by_fallback(providers: &[String]) -> Option<(String, String)> {
     debug!("Requesting {} for public IP ...", info_style(providers.join(", ")));
 
     let mut ret = None;
@@ -49,7 +49,7 @@ pub async fn get_ip_by_fallback(providers: &[String]) -> Option<String> {
         match get_ip(provider).await {
             Err(_) => continue,
             Ok(ip) => {
-                ret = Some(ip);
+                ret = Some((name.to_owned(), ip));
                 break;
             }
         }

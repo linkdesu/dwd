@@ -55,7 +55,6 @@ async fn main() {
 
     let mut last_updated_ip: Option<String> = None;
     let mut last_updated_at: Option<SystemTime> = None;
-    let update_period = Duration::from_secs(conf.interval as u64);
 
     info!("DDNS with DNS has started {}", Emoji("✨", ""));
     debug!(
@@ -75,11 +74,10 @@ async fn main() {
             .duration_since(started_at)
             .expect("Clock may have gone backwards");
 
-        if ret.is_none() {
-            continue;
-        }
-
-        let ip = ret.unwrap();
+        let (provider_name, ip) = match ret {
+            None => continue,
+            Some(val) => val,
+        };
 
         if !util::is_ip(&ip) {
             error!(target: "error", "Got an invalid IP address!");
@@ -87,7 +85,8 @@ async fn main() {
         } else {
             info!(
                 target: "success",
-                "Successfully got current public IP: {} (in {}ms)",
+                "[{}] Successfully got current public IP: {} (in {}ms)",
+                provider_name,
                 success_style(&ip),
                 info_style(duration.as_millis())
             );
@@ -99,8 +98,8 @@ async fn main() {
             let since_last_updated = SystemTime::now()
                 .duration_since(last_updated_at.to_owned().unwrap())
                 .expect("Clock may have gone backwards");
-            if last_updated_ip.as_ref().unwrap() == &ip && since_last_updated < update_period {
-                info!("No need to update, skip.");
+            if last_updated_ip.as_ref().unwrap() == &ip {
+                info!("No need to update the DNS record, skip.(since_last_updated: {}s)", since_last_updated.as_secs());
                 continue;
             }
         }
@@ -115,7 +114,7 @@ async fn main() {
         last_updated_ip = Some(ip);
         last_updated_at = Some(SystemTime::now());
 
-        info!("Updated in {}ms {}", info_style(duration.as_millis()), Emoji("🕐", ""));
+        info!("The DNS record updated in {}ms {}", info_style(duration.as_millis()), Emoji("🕐", ""));
     }
 }
 
