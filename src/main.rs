@@ -8,7 +8,7 @@ use std::{
     process,
     time::{Duration, SystemTime},
 };
-use tokio::time;
+use tokio::{task, time};
 
 use util::{debug_style, error_style, info_style, success_style, warn_style};
 
@@ -36,7 +36,7 @@ struct Options {
     verbose: u32,
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     // Parse options
     let options: Options = Options::parse();
@@ -53,9 +53,6 @@ async fn main() {
         }
     };
 
-    let mut last_updated_ip: Option<String> = None;
-    let mut last_updated_at: Option<SystemTime> = None;
-
     info!("DDNS with DNS has started {}", Emoji("✨", ""));
     debug!(
         "Will request public IP from [{}] every {} seconds and update to [{}].",
@@ -64,58 +61,71 @@ async fn main() {
         info_style(&conf.dns_provider.join(", "))
     );
 
-    let mut timer = time::interval(Duration::from_secs(conf.interval as u64));
-    loop {
-        timer.tick().await;
+    let handle = task::spawn(async move {
+        let mut last_updated_ip: Option<String> = None;
+        let mut last_updated_at: Option<SystemTime> = None;
 
-        let started_at = SystemTime::now();
-        let ret = ip_provider::get_ip_by_fallback(&conf.ip_provider).await;
-        let duration = SystemTime::now()
-            .duration_since(started_at)
-            .expect("Clock may have gone backwards");
+        let mut timer = time::interval(Duration::from_secs(conf.interval as u64));
+        loop {
+            timer.tick().await;
 
-        let (provider_name, ip) = match ret {
-            None => continue,
-            Some(val) => val,
-        };
+            let started_at = SystemTime::now();
+            let ret = ip_provider::get_ip_by_fallback(&conf.ip_provider).await;
+            let duration = SystemTime::now()
+                .duration_since(started_at)
+                .expect("Clock may have gone backwards");
 
-        if !util::is_ip(&ip) {
-            error!(target: "error", "Got an invalid IP address!");
-            continue;
-        } else {
+            let (provider_name, ip) = match ret {
+                None => continue,
+                Some(val) => val,
+            };
+
+            if !util::is_ip(&ip) {
+                error!(target: "error", "Got an invalid IP address!");
+                continue;
+            } else {
+                info!(
+                    target: "success",
+                    "[{}] Successfully got current public IP: {} (in {}ms)",
+                    provider_name,
+                    success_style(&ip),
+                    info_style(duration.as_millis())
+                );
+            }
+
+            // If the last IP update is the same as the current IP and the update cycle has not yet been reached,
+            // then skip.
+            if last_updated_ip.is_some() && last_updated_at.is_some() {
+                let since_last_updated = SystemTime::now()
+                    .duration_since(last_updated_at.to_owned().unwrap())
+                    .expect("Clock may have gone backwards");
+                if last_updated_ip.as_ref().unwrap() == &ip {
+                    info!(
+                        "No need to update the DNS record, skip.(since_last_updated: {}s)",
+                        since_last_updated.as_secs()
+                    );
+                    continue;
+                }
+            }
+
+            let started_at = SystemTime::now();
+            dns_provider::update_dns_for_all(&conf, &ip).await;
+            let duration = SystemTime::now()
+                .duration_since(started_at)
+                .expect("Clock may have gone backwards");
+
+            // Save IP and SystemTime when DNS update succeeds.
+            last_updated_ip = Some(ip);
+            last_updated_at = Some(SystemTime::now());
+
             info!(
-                target: "success",
-                "[{}] Successfully got current public IP: {} (in {}ms)",
-                provider_name,
-                success_style(&ip),
-                info_style(duration.as_millis())
+                "The DNS record updated in {}ms {}",
+                info_style(duration.as_millis()),
+                Emoji("🕐", "")
             );
         }
-
-        // If the last IP update is the same as the current IP and the update cycle has not yet been reached,
-        // then skip.
-        if last_updated_ip.is_some() && last_updated_at.is_some() {
-            let since_last_updated = SystemTime::now()
-                .duration_since(last_updated_at.to_owned().unwrap())
-                .expect("Clock may have gone backwards");
-            if last_updated_ip.as_ref().unwrap() == &ip {
-                info!("No need to update the DNS record, skip.(since_last_updated: {}s)", since_last_updated.as_secs());
-                continue;
-            }
-        }
-
-        let started_at = SystemTime::now();
-        dns_provider::update_dns_for_all(&conf, &ip).await;
-        let duration = SystemTime::now()
-            .duration_since(started_at)
-            .expect("Clock may have gone backwards");
-
-        // Save IP and SystemTime when DNS update succeeds.
-        last_updated_ip = Some(ip);
-        last_updated_at = Some(SystemTime::now());
-
-        info!("The DNS record updated in {}ms {}", info_style(duration.as_millis()), Emoji("🕐", ""));
-    }
+    });
+    handle.await.expect("DWD exits unexpectedly, sorry for that. 💔");
 }
 
 fn init_log(options: &Options) {
