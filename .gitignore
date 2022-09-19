@@ -11,5 +11,6 @@
 /target
 
 # Other
+dwd
 .env
 config.*
